@@ -27,7 +27,6 @@ def eval_alphabet(language_name: String) -> Optional[List[String]]:
 
     py_language_name = language_name.value
     locale = language2locale.get(py_language_name, py_language_name)
-    print(locale)
     if locale not in availableLocales:
         return
     alphabet_set = LocaleData(locale).getExemplarSet(0, 0)
