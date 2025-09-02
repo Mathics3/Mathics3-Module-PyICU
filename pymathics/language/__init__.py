@@ -1,9 +1,8 @@
-"""Pymathics Language
+"""Mathics3 Module PyICU
 
 This module provides Mathics functions and varialbles to work with
-Lanugages and Translations
+Languages and Translations.
 """
-
 
 from pymathics.language.__main__ import Alphabet
 from pymathics.language.version import __version__

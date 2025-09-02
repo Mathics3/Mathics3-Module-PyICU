@@ -9,11 +9,11 @@ Languages & Translations
 # PyICU: human-language alphabets and locales
 
 
-from icu import Locale, LocaleData
 from typing import List, Optional
 
-from mathics.builtin.base import Builtin
+from icu import Locale, LocaleData
 from mathics.core.atoms import String
+from mathics.core.builtin import Builtin
 from mathics.core.convert.expression import to_mathics_list
 
 availableLocales = Locale.getAvailableLocales()
@@ -27,6 +27,7 @@ def eval_alphabet(language_name: String) -> Optional[List[String]]:
 
     py_language_name = language_name.value
     locale = language2locale.get(py_language_name, py_language_name)
+    print(locale)
     if locale not in availableLocales:
         return
     alphabet_set = LocaleData(locale).getExemplarSet(0, 0)
@@ -70,7 +71,7 @@ class Alphabet(Builtin):
 
     summary_text = "lowercase letters in an alphabet"
 
-    def apply(self, alpha: String, evaluation):
+    def eval(self, alpha: String, evaluation):
         """Alphabet[alpha_String]"""
         alphabet_list = eval_alphabet(alpha)
         if alphabet_list is None:
