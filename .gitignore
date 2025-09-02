@@ -1,6 +1,7 @@
 *~
 .python-version
 /ChangeLog
+/Mathics3_Module_PyICU.egg-info
 /build
 /dist
 /pymathics_language.egg-info
