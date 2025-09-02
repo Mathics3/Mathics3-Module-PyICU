@@ -9,11 +9,11 @@ Languages & Translations
 # PyICU: human-language alphabets and locales
 
 
-from icu import Locale, LocaleData
 from typing import List, Optional
 
-from mathics.core.builtin import Builtin
+from icu import Locale, LocaleData
 from mathics.core.atoms import String
+from mathics.core.builtin import Builtin
 from mathics.core.convert.expression import to_mathics_list
 
 availableLocales = Locale.getAvailableLocales()
