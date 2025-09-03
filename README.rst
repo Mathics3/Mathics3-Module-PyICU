@@ -1,6 +1,6 @@
 Mathics3 Module for ICU — International Components for Unicode
 
-Functions which provide information from the `Python ICU library <https://pypi.org/project/pyicu/`_ library.
+Functions that provide information from the `Python ICU library <https://pypi.org/project/pyicu/>`_.
 
 Example Session
 ---------------
