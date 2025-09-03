@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 
+from mathics.core.atoms import String
 from mathics.core.load_builtin import import_and_load_builtins
 from mathics.session import MathicsSession
 
 import_and_load_builtins()
 
 session = MathicsSession(character_encoding="UTF-8")
+assert session.evaluate('LoadModule["pymathics.icu"]') == String("pymathics.icu")
 
 
 def check_evaluation(str_expr: str, expected: str, assert_message=""):
@@ -19,8 +21,7 @@ def check_evaluation(str_expr: str, expected: str, assert_message=""):
         assert result == expected
 
 
-def test_language():
-    session.evaluate('LoadModule["pymathics.icu"]') == "pymathics.icu"
+def test_alphabet():
     check_evaluation(
         'Alphabet["es"]',
         (

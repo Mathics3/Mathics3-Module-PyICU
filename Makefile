@@ -37,8 +37,12 @@ pypi-setup:
 develop: pypi-setup
 	$(PIP) install -e .
 
+doctest:
+	MATHICS_CHARACTER_ENCODING="ASCII" $(PYTHON) -m mathics.docpipeline -l pymathics.icu -c 'ICU — International Components for Unicode' $o
+
+
 # Run tests
-check: pytest
+check: pytest doctest
 
 #: Remove derived files
 clean: clean-pyc
