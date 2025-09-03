@@ -20,7 +20,7 @@ def check_evaluation(str_expr: str, expected: str, assert_message=""):
 
 
 def test_language():
-    session.evaluate('LoadModule["pymathics.language"]') == "pymathics.language"
+    session.evaluate('LoadModule["pymathics.icu"]') == "pymathics.icu"
     check_evaluation(
         'Alphabet["es"]',
         (

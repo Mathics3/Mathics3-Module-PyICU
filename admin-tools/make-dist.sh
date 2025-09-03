@@ -16,7 +16,7 @@ fi
 
 
 cd ..
-source pymathics/language/version.py
+source pymathics/icu/version.py
 echo $__version__
 
 pyversion=3.13

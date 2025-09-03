@@ -49,8 +49,8 @@ dev = [
 
 [tool.setuptools]
 packages = [
-    "pymathics.language",
+    "pymathics.icu",
 ]
 
 [tool.setuptools.dynamic]
-version = {attr = "pymathics.language.__version__"}
+version = {attr = "pymathics.icu.__version__"}
