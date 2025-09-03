@@ -1,6 +1,8 @@
 9.0.0
 -----
 
-Setp 2, 2025
+September 3, 2025
 
-Revise for 9.0.0 Mathics3 API. Python 3.13 suportted. Python before 3.10 dropped
+Revise for 9.0.0 Mathics3 API. Python 3.13 supported. Python before 3.10 dropped
+
+Add ``$Language`` variable and ``AlphabeticOrder[]`` Builtin.
