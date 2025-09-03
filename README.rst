@@ -25,3 +25,12 @@ Example Session
 
    In[6]:= Alphabet[]
    Out[6]= {a, ä, b, c, d, e, f, g, h, i, j, k, l, m, n, o, ö, p, q, r, s, ß, t, u, ü, v, w, x, y, z}
+
+   In[7]:= AlphabeticOrder["Papá", "Papagayo", "Spanish"]
+   Out[7]= 1
+
+   In[8]:= AlphabeticOrder["Papá", "Papa", "Spanish"]
+   Out[8]= -1
+
+   In[8]:= AlphabeticOrder["Papá", ""Papá", "Spanish"]
+   Out[8]= 0
