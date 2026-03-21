@@ -2,7 +2,7 @@
 requires = [
 	"setuptools",
         "Mathics3-Module-Base >= 9.0.0",
-        "Mathics3>=9.0.0",
+        "Mathics3>9.0.0",
         "PyICU>=2.9",
 ]
 build-backend = "setuptools.build_meta"
@@ -12,7 +12,7 @@ name = "Mathics3-Module-PyICU"
 description = 'Mathics3 Module ICU - Human-Language Alphabets and Locales via PyICU'
 dependencies = [
         "Mathics3-Module-Base >= 9.0.0",
-        "Mathics3 >= 9.0.0",
+        "Mathics3 > 9.0.0",
         "PyICU>=2.9",
 ]
 requires-python = ">=3.10"
