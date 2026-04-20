@@ -11,7 +11,7 @@ build-backend = "setuptools.build_meta"
 name = "Mathics3-Module-PyICU"
 description = 'Mathics3 Module ICU - Human-Language Alphabets and Locales via PyICU'
 dependencies = [
-        "Mathics3-Module-Base >= 10.0.0",
+        "Mathics3-Module-Base >= 9.0.0",
         "Mathics3 >= 10.0.0",
         "PyICU>=2.9",
 ]
@@ -20,7 +20,7 @@ readme = "README.rst"
 license = "GPL-3.0-or-later"
 keywords = ["Mathematica", "Wolfram", "Interpreter", "Shell", "Math", "CAS"]
 maintainers = [
-    {name = "Mathics Group", email = "mathics-devel@googlegroups.com"},
+    {name = "Mathics3 Group", email = "mathics-devel@googlegroups.com"},
 ]
 classifiers = [
     "Intended Audience :: Developers",

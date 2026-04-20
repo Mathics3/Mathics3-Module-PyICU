@@ -57,8 +57,8 @@ pytest:
 	pytest test $o
 
 
-# #: Make Mathics PDF manual
-# doc mathics.pdf: mathics/doc/tex/data
+# #: Make Mathics3 PDF manual
+# doc mathics3.pdf: mathics/doc/tex/data
 # 	(cd mathics/doc/tex && $(MAKE) mathics.pdf)
 
 #: Create ChangeLog from version control without corrections

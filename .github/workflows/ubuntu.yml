@@ -23,7 +23,7 @@ jobs:
         sudo apt install libicu-dev
         python -m pip install --upgrade pip
         python -m pip install pytest
-        # # Go over and comment out stuff when next Mathics core and Mathics-scanner are released
+        # # Go over and comment out stuff when next Mathics3 core and Mathics-scanner are released
         # python -m pip install -e git+https://github.com/Mathics3/mathics-scanner#egg=Mathics-Scanner[full]
         # git clone https://github.com/Mathics3/mathics-core
         # (cd mathics-core && pip3 install -e .[full])
