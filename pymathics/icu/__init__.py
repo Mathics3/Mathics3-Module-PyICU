@@ -36,4 +36,10 @@ pymathics_version_data = {
     "requires": ["PyICU"],
 }
 
-__all__ = ["Alphabet", "AlphabeticOrder", "Language", "pymathics_version_data", "__version__"]
+__all__ = [
+    "Alphabet",
+    "AlphabeticOrder",
+    "Language",
+    "pymathics_version_data",
+    "__version__",
+]
