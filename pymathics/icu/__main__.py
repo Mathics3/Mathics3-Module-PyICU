@@ -161,9 +161,17 @@ class AlphabeticOrder(Builtin):
         """AlphabeticOrder[string1_String, string2_String]"""
         return Integer(eval_alphabetic_order(string1.value, string2.value))
 
-    def eval_with_lang(self, string1: String, string2: String, lang: String, evaluation: Evaluation):
+    def eval_with_lang(
+        self, string1: String, string2: String, lang: String, evaluation: Evaluation
+    ):
         """AlphabeticOrder[string1_String, string2_String, lang_String]"""
-        return Integer(eval_alphabetic_order(string1.value, string2.value, lang.value, ))
+        return Integer(
+            eval_alphabetic_order(
+                string1.value,
+                string2.value,
+                lang.value,
+            )
+        )
 
 
 ## FIXME: move to mathics-core. Will have to change references to Pymathics`$Language to $Language

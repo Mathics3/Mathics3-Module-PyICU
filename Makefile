@@ -11,6 +11,7 @@ RM  ?= rm
 LANG = en
 
 .PHONY: all build \
+   ChangeLog-without-corrections \
    check clean \
    develop dist doc doc-data \
    pypi-setup \
@@ -56,15 +57,18 @@ pytest:
 	pytest test $o
 
 
-# #: Make Mathics PDF manual
-# doc mathics.pdf: mathics/doc/tex/data
+# #: Make Mathics3 PDF manual
+# doc mathics3.pdf: mathics/doc/tex/data
 # 	(cd mathics/doc/tex && $(MAKE) mathics.pdf)
+
+#: Create ChangeLog from version control without corrections
+ChangeLog-without-corrections:
+	git log --pretty --numstat --summary | $(GIT2CL) >ChangeLog
 
 #: Remove ChangeLog
 rmChangeLog:
 	$(RM) ChangeLog || true
 
 #: Create a ChangeLog from git via git log and git2cl
-ChangeLog: rmChangeLog
-	git log --pretty --numstat --summary | $(GIT2CL) >$@
-	patch ChangeLog < ChangeLog-spell-corrected.diff
+ChangeLog: rmChangeLog ChangeLog-without-corrections
+	patch -p0 ChangeLog < ChangeLog-spell-corrected.diff

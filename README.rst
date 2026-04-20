@@ -1,3 +1,8 @@
+|Pypi Installs| |Latest Version| |Supported Python Versions|
+
+Mathics3 Natural Language Toolkit module.
+
+
 Mathics3 Module for ICU — International Components for Unicode
 
 Functions that provide information from the `Python ICU library <https://pypi.org/project/pyicu/>`_.
@@ -5,7 +10,7 @@ Functions that provide information from the `Python ICU library <https://pypi.or
 Example Session
 ---------------
 
-::
+.. code:: mathematica
 
    $ mathicsscript
    In[1]:= LoadModule["pymathics.icu"]
@@ -34,3 +39,11 @@ Example Session
 
    In[8]:= AlphabeticOrder["Papá", ""Papá", "Spanish"]
    Out[8]= 0
+
+
+.. |Latest Version| image:: https://badge.fury.io/py/Mathics3-Module-PyICU.svg
+		 :target: https://badge.fury.io/py/Mathics3-Module-PyICU
+.. |Pypi Installs| image:: https://pepy.tech/badge/Mathics3-Module-PyICU
+.. |Supported Python Versions| image:: https://img.shields.io/pypi/pyversions/Mathics3-Module-PyICU.svg
+.. |Packaging status| image:: https://repology.org/badge/vertical-allrepos/Mathics3-Module-PyICU.svg
+			    :target: https://repology.org/project/Mathics3-Module-PyICU/versions

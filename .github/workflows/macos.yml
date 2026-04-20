@@ -12,9 +12,9 @@ jobs:
     strategy:
       matrix:
         os: [macOS]
-        python-version: ['3.12', '3.13']
+        python-version: ['3.13', '3.14']
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
@@ -27,7 +27,7 @@ jobs:
         brew install llvm
         python -m pip install --upgrade pip
         python -m pip install pytest
-        # # Go over and comment out stuff when next Mathics core and Mathics-scanner are released
+        # # Go over and comment out stuff when next Mathics3 core and Mathics-scanner are released
         # python -m pip install -e git+https://github.com/Mathics3/mathics-scanner#egg=Mathics-Scanner[full]
         # git clone https://github.com/Mathics3/mathics-core
         # (cd mathics-core && pip3 install -e .[full])
