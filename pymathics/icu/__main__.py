@@ -53,7 +53,9 @@ class AlphabeticOrderOptions:
     """what language or alphabet to assume"""
 
     @classmethod
-    def from_dict(cls, options: dict[str, Any]) -> "AlphabeticOrderOptions":
+    def from_dict(
+        cls, options: dict[str, Any], evaluation: Evaluation
+    ) -> Optional["AlphabeticOrderOptions"]:
         """Factory method that normalizes, type-checks, and builds the frozen structure
         from a raw dict[str, str].
         """
@@ -79,7 +81,8 @@ class AlphabeticOrderOptions:
             normalized_key = key_mapping.get(raw_key)
 
             if not normalized_key:
-                raise TypeError(f"Unknown option field provided: '{raw_key}'")
+                evaluation.message("AlphabeticOrder", "nodef", Symbol(raw_key), String("AlphabeticOrder"))
+                return
 
             # Type parsing and validation based on the target field name
             if normalized_key in (
@@ -88,10 +91,8 @@ class AlphabeticOrderOptions:
                 "ignore_punctuation",
             ):
                 if option_value not in (SymbolTrue, SymbolFalse):
-                    raise TypeError(
-                        f"Field '{raw_key}' expects a Boolean value. "
-                        f"Got: '{option_value}'"
-                    )
+                    evaluation.message("AlphabeticOrder", "nodef", Symbol(raw_key), String("AlphabeticOrder"))
+                    return
                 processed_args[normalized_key] = option_value.value
 
             elif normalized_key == "language":
@@ -99,10 +100,8 @@ class AlphabeticOrderOptions:
                     option_value = String(LANGUAGE)
 
                 if not isinstance(option_value, String):
-                    raise TypeError(
-                        f"Field '{raw_key}' expects a String value. "
-                        f"Got: '{option_value}'"
-                    )
+                    evaluation.message("AlphabeticOrder", "nodef", Symbol(raw_key), String("AlphabeticOrder"))
+                    return
                 processed_args[normalized_key] = option_value
 
             elif normalized_key == "lowercase_ordering":
@@ -113,11 +112,8 @@ class AlphabeticOrderOptions:
                 elif option_value == StringUpperFirst:
                     processed_args[normalized_key] = False
                 else:
-                    breakpoint()
-                    raise TypeError(
-                        f"Field 'CaseOrdering' expects a 'UpperFirst', 'LowerFirst' or Automatic "
-                        f"Got: '{option_value}'"
-                    )
+                    evaluation.message("AlphabeticOrder", "nodef", Symbol(raw_key), String("AlphabeticOrder"))
+                    return
 
         # Initialize and return the frozen dataclass using our verified arguments
         return cls(**processed_args)
@@ -256,7 +252,7 @@ class Alphabet(Builtin):
     """
 
     messages = {
-        "nalph": "The alphabet `` is not known or not available.",
+        "nalph": "The alphabet `1` is not known or not available.",
     }
 
     rules = {
@@ -364,7 +360,9 @@ class AlphabeticOrder(Builtin):
     ):
         """AlphabeticOrder[string1_String, string2_String, lang_String, OptionsPattern[%(name)s]]"""
 
-        alphabetic_order_options = AlphabeticOrderOptions.from_dict(options)
+        alphabetic_order_options = AlphabeticOrderOptions.from_dict(options, evaluation)
+        if alphabetic_order_options is None:
+            return
 
         return Integer(
             eval_alphabetic_order(
