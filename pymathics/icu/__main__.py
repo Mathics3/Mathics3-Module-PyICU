@@ -6,7 +6,7 @@ Languages - Human-Language Alphabets and Locales via PyICU.
 
 from dataclasses import dataclass
 from icu import Collator, Locale, LocaleData, UCollAttribute, UCollAttributeValue
-from typing import Any, Optional
+from typing import Any, Final, Optional
 from mathics.builtin.system import LANGUAGE
 from mathics.core.atoms import Integer, String
 from mathics.core.builtin import Builtin
@@ -20,7 +20,10 @@ language2locale = {
     for locale_name, availableLocale in available_locales.items()
 }
 
-SymbolLanguage = Symbol("System`$Language")
+StringAutomatic: Final[String] = String("Automatic")
+StringLowerFirst: Final[String] = String("LowerFirst")
+StringUpperFirst: Final[String] = String("UpperFirst")
+SymbolLanguage: Final[String] = Symbol("System`$Language")
 
 @dataclass(frozen=True)
 class AlphabeticOrderOptions:
@@ -30,11 +33,12 @@ class AlphabeticOrderOptions:
     One initialized, this structure is immutable or frozen.
     """
 
-    # case_ordering: bool=False
-    # """How to order upper versus lower case"""
+    lowercase_ordering: Optional[bool]=None
+    """'True" if ordering should be lowercase first, 'False" if should uppercase first,
+      and 'None' if we should use the natural alphabet ordering case."""
 
     ignore_case: bool=False
-    """How to order upper versus lower case"""
+    """whether to ignore upper versus lower case"""
 
     ignore_diacritics: bool=False
     """whether to ignore diacritics for ordering"""
@@ -51,7 +55,7 @@ class AlphabeticOrderOptions:
         from a raw dict[str, str].
         """
         key_mapping = {
-            # "System`CaseOrdering": "ignore_case",
+            "System`CaseOrdering": "lowercase_ordering",
             "System`IgnoreCase": "ignore_case",
             "System`IgnoreDiacritics": "ignore_diacritics",
             "System`IgnorePunctuation": "ignore_punctuation",
@@ -60,7 +64,7 @@ class AlphabeticOrderOptions:
 
         # This will hold our cleaned, type-converted parameters
         processed_args: dict[str, Any] = {
-            # "case_ordering": False,
+            "lowercase_ordering": None,
             "ignore_case": False,
             "ignore_diacritics": False,
             "ignore_punctuation": False,
@@ -85,7 +89,7 @@ class AlphabeticOrderOptions:
                     )
                 processed_args[normalized_key] = option_value.value
 
-            if normalized_key == "language":
+            elif normalized_key == "language":
                 if option_value is SymbolLanguage:
                     option_value = String(LANGUAGE)
 
@@ -95,6 +99,19 @@ class AlphabeticOrderOptions:
                         f"Got: '{option_value}'"
                     )
                 processed_args[normalized_key] = option_value
+
+            elif normalized_key == "lowercase_ordering":
+                if option_value == StringAutomatic:
+                    processed_args[normalized_key] = None
+                elif option_value == StringLowerFirst:
+                    processed_args[normalized_key] = True
+                elif option_value == StringUpperFirst:
+                    processed_args[normalized_key] = False
+                else:
+                    raise TypeError(
+                        f"Field 'CaseOrdering' expects a 'UpperFirst', 'LowerFirst' or Automatic"
+                        f"Got: '{option_value}'"
+                    )
 
         # Initialize and return the frozen dataclass using our verified arguments
         return cls(**processed_args)
@@ -159,6 +176,11 @@ def eval_alphabetic_order(string1: str, string2: str, language_name, options: Al
             UCollAttribute.ALTERNATE_HANDLING,
             UCollAttributeValue.NON_IGNORABLE
         )
+
+    if options.lowercase_ordering:
+        collator.setAttribute(UCollAttribute.CASE_FIRST, UCollAttributeValue.LOWER_FIRST)
+    elif options.lowercase_ordering is False:
+        collator.setAttribute(UCollAttribute.CASE_FIRST, UCollAttributeValue.UPPER_FIRST)
 
     comparison = collator.compare(string1, string2)
     if comparison < 0:
@@ -280,7 +302,7 @@ class AlphabeticOrder(Builtin):
     eval_error = Builtin.generic_argument_error
     expected_args = range(1, 4)
     options = {
-        # "System`CaseOrdering": "Automatic",
+        "System`CaseOrdering": "Automatic",
         "System`IgnoreCase": "False",
         "System`IgnoreDiacritics": "False",
         "System`IgnorePunctuation": "False",
