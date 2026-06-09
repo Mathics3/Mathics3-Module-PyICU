@@ -5,14 +5,16 @@ Languages - Human-Language Alphabets and Locales via PyICU.
 """
 
 from dataclasses import dataclass
-from icu import Collator, Locale, LocaleData, UCollAttribute, UCollAttributeValue
 from typing import Any, Final, Optional
+
+from icu import Collator, Locale, LocaleData, UCollAttribute, UCollAttributeValue
 from mathics.builtin.system import LANGUAGE
 from mathics.core.atoms import Integer, String
 from mathics.core.builtin import Builtin
 from mathics.core.convert.expression import to_mathics_list
 from mathics.core.evaluation import Evaluation
 from mathics.core.symbols import Symbol, SymbolFalse, SymbolTrue
+from mathics.core.systemsymbols import SymbolAutomatic
 
 available_locales = Locale.getAvailableLocales()
 language2locale = {
@@ -20,10 +22,11 @@ language2locale = {
     for locale_name, availableLocale in available_locales.items()
 }
 
-StringAutomatic: Final[String] = String("Automatic")
-StringLowerFirst: Final[String] = String("LowerFirst")
+StringAutomatic: Final[String] = String("System`Automatic")
+LowerFirst: Final[set[String]] = {String("System`LowerFirst"), String("LowerFirst")}
 StringUpperFirst: Final[String] = String("UpperFirst")
 SymbolLanguage: Final[String] = Symbol("System`$Language")
+
 
 @dataclass(frozen=True)
 class AlphabeticOrderOptions:
@@ -33,20 +36,20 @@ class AlphabeticOrderOptions:
     One initialized, this structure is immutable or frozen.
     """
 
-    lowercase_ordering: Optional[bool]=None
+    lowercase_ordering: Optional[bool] = None
     """'True" if ordering should be lowercase first, 'False" if should uppercase first,
       and 'None' if we should use the natural alphabet ordering case."""
 
-    ignore_case: bool=False
+    ignore_case: bool = False
     """whether to ignore upper versus lower case"""
 
-    ignore_diacritics: bool=False
+    ignore_diacritics: bool = False
     """whether to ignore diacritics for ordering"""
 
-    ignore_punctuation: bool=False
+    ignore_punctuation: bool = False
     """whether to ignore punctuation for ordering"""
 
-    language: str=LANGUAGE
+    language: str = LANGUAGE
     """what language or alphabet to assume"""
 
     @classmethod
@@ -76,12 +79,14 @@ class AlphabeticOrderOptions:
             normalized_key = key_mapping.get(raw_key)
 
             if not normalized_key:
-                raise TypeError(
-                    f"Unknown option field provided: '{raw_key}'"
-                )
+                raise TypeError(f"Unknown option field provided: '{raw_key}'")
 
             # Type parsing and validation based on the target field name
-            if normalized_key in ("ignore_case", "ignore_diacritics", "ignore_punctuation"):
+            if normalized_key in (
+                "ignore_case",
+                "ignore_diacritics",
+                "ignore_punctuation",
+            ):
                 if option_value not in (SymbolTrue, SymbolFalse):
                     raise TypeError(
                         f"Field '{raw_key}' expects a Boolean value. "
@@ -101,15 +106,16 @@ class AlphabeticOrderOptions:
                 processed_args[normalized_key] = option_value
 
             elif normalized_key == "lowercase_ordering":
-                if option_value == StringAutomatic:
+                if (option_value is SymbolAutomatic) or option_value == "Automatic":
                     processed_args[normalized_key] = None
-                elif option_value == StringLowerFirst:
+                elif option_value in LowerFirst:
                     processed_args[normalized_key] = True
                 elif option_value == StringUpperFirst:
                     processed_args[normalized_key] = False
                 else:
+                    breakpoint()
                     raise TypeError(
-                        f"Field 'CaseOrdering' expects a 'UpperFirst', 'LowerFirst' or Automatic"
+                        f"Field 'CaseOrdering' expects a 'UpperFirst', 'LowerFirst' or Automatic "
                         f"Got: '{option_value}'"
                     )
 
@@ -127,7 +133,9 @@ def eval_alphabet(language_name: String) -> Optional[list[String]]:
     return to_mathics_list(*alphabet_set, elements_conversion_fn=String)
 
 
-def eval_alphabetic_order(string1: str, string2: str, language_name, options: AlphabeticOrderOptions) -> int:
+def eval_alphabetic_order(
+    string1: str, string2: str, language_name, options: AlphabeticOrderOptions
+) -> int:
     """
     Compare two strings using locale-sensitive alphabetic order.
 
@@ -168,19 +176,21 @@ def eval_alphabetic_order(string1: str, string2: str, language_name, options: Al
     # effectively ignoring them during normal alphanumeric string comparison.
     if options.ignore_punctuation:
         collator.setAttribute(
-            UCollAttribute.ALTERNATE_HANDLING,
-            UCollAttributeValue.SHIFTED
+            UCollAttribute.ALTERNATE_HANDLING, UCollAttributeValue.SHIFTED
         )
     else:
         collator.setAttribute(
-            UCollAttribute.ALTERNATE_HANDLING,
-            UCollAttributeValue.NON_IGNORABLE
+            UCollAttribute.ALTERNATE_HANDLING, UCollAttributeValue.NON_IGNORABLE
         )
 
     if options.lowercase_ordering:
-        collator.setAttribute(UCollAttribute.CASE_FIRST, UCollAttributeValue.LOWER_FIRST)
+        collator.setAttribute(
+            UCollAttribute.CASE_FIRST, UCollAttributeValue.LOWER_FIRST
+        )
     elif options.lowercase_ordering is False:
-        collator.setAttribute(UCollAttribute.CASE_FIRST, UCollAttributeValue.UPPER_FIRST)
+        collator.setAttribute(
+            UCollAttribute.CASE_FIRST, UCollAttributeValue.UPPER_FIRST
+        )
 
     comparison = collator.compare(string1, string2)
     if comparison < 0:
@@ -250,7 +260,7 @@ class Alphabet(Builtin):
     }
 
     rules = {
-        "Alphabet[]": """Alphabet[Pymathics`$Language]""",
+        "Alphabet[]": """Alphabet[$Language]""",
     }
 
     summary_text = "lowercase letters in an alphabet"
@@ -287,6 +297,16 @@ class AlphabeticOrder(Builtin):
      >> AlphabeticOrder["A", "a"]
       = -1
 
+     However, you can for which case comes first using the 'CaseOrdering' option:
+     >> AlphabeticOrder["a", "A", CaseOrdering -> "LowerFirst"]
+      = 1
+
+     >> AlphabeticOrder["a", "A", CaseOrdering -> "UpperFirst"]
+      = -1
+
+     >> AlphabeticOrder["a", "A"] ==  AlphabeticOrder["a", "A", CaseOrdering -> "LowerFirst"]
+      = True
+
      Longer words follow their prefixes:
      >> AlphabeticOrder["Papagayo", "Papa", "Spanish"]
       = -1
@@ -297,6 +317,23 @@ class AlphabeticOrder(Builtin):
 
      >> AlphabeticOrder["Papá", "Papagayo", "Spanish"]
       = 1
+
+     The alphabetic ordering is determined by the value of <url>:$Language:
+     doc/reference-of-built-in-symbols/global-system-information/$language/</url>. However, \
+     specify a the language as the third argument:
+     >> AlphabeticOrder["ñ", "n", "Spanish"]
+      = -1
+
+     Option 'IgnorePunctuation' specifies whether to remove puctuation characters before comparing the strings:
+
+     >> AlphabeticOrder["Name-1", "Name.1", "Spanish", IgnorePunctuation -> True]
+      = 0
+
+     >> AlphabeticOrder["it's", "its", "English", IgnorePunctuation -> False]
+      = 1
+
+     >> AlphabeticOrder["it's", "its", "English", IgnorePunctuation -> True]
+      = 0
     """
 
     eval_error = Builtin.generic_argument_error
@@ -310,13 +347,20 @@ class AlphabeticOrder(Builtin):
     }
     summary_text = "return -1, 0, 1 comparing the alphabetic order of two strings"
 
-    def eval(self, string1: String, string2: String, evaluation: Evaluation, options: dict):
+    def eval(
+        self, string1: String, string2: String, evaluation: Evaluation, options: dict
+    ):
         """AlphabeticOrder[string1_String, string2_String, OptionsPattern[%(name)s]]"""
         lang = String(LANGUAGE)
         return self.eval_with_lang(string1, string2, lang, options, evaluation)
 
     def eval_with_lang(
-            self, string1: String, string2: String, lang: String, options: dict, evaluation: Evaluation
+        self,
+        string1: String,
+        string2: String,
+        lang: String,
+        options: dict,
+        evaluation: Evaluation,
     ):
         """AlphabeticOrder[string1_String, string2_String, lang_String, OptionsPattern[%(name)s]]"""
 
