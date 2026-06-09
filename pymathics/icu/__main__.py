@@ -4,13 +4,15 @@
 Languages - Human-Language Alphabets and Locales via PyICU.
 """
 
-from typing import List, Optional
-
-from icu import Collator, Locale, LocaleData
+from dataclasses import dataclass
+from icu import Collator, Locale, LocaleData, UCollAttribute, UCollAttributeValue
+from typing import Any, Optional
+from mathics.builtin.system import LANGUAGE
 from mathics.core.atoms import Integer, String
-from mathics.core.builtin import Builtin, Predefined
+from mathics.core.builtin import Builtin
 from mathics.core.convert.expression import to_mathics_list
 from mathics.core.evaluation import Evaluation
+from mathics.core.symbols import Symbol, SymbolFalse, SymbolTrue
 
 available_locales = Locale.getAvailableLocales()
 language2locale = {
@@ -18,11 +20,87 @@ language2locale = {
     for locale_name, availableLocale in available_locales.items()
 }
 
-# The current value of $Language
-LANGUAGE = "English"
+SymbolLanguage = Symbol("System`$Language")
+
+@dataclass(frozen=True)
+class AlphabeticOrderOptions:
+    """
+    Stores options associated with AlphbeticOrder[] builtin.
+
+    One initialized, this structure is immutable or frozen.
+    """
+
+    # case_ordering: bool=False
+    # """How to order upper versus lower case"""
+
+    ignore_case: bool=False
+    """How to order upper versus lower case"""
+
+    ignore_diacritics: bool=False
+    """whether to ignore diacritics for ordering"""
+
+    ignore_punctuation: bool=False
+    """whether to ignore punctuation for ordering"""
+
+    language: str=LANGUAGE
+    """what language or alphabet to assume"""
+
+    @classmethod
+    def from_dict(cls, options: dict[str, Any]) -> "AlphabeticOrderOptions":
+        """Factory method that normalizes, type-checks, and builds the frozen structure
+        from a raw dict[str, str].
+        """
+        key_mapping = {
+            # "System`CaseOrdering": "ignore_case",
+            "System`IgnoreCase": "ignore_case",
+            "System`IgnoreDiacritics": "ignore_diacritics",
+            "System`IgnorePunctuation": "ignore_punctuation",
+            "System`Language": "language",
+        }
+
+        # This will hold our cleaned, type-converted parameters
+        processed_args: dict[str, Any] = {
+            # "case_ordering": False,
+            "ignore_case": False,
+            "ignore_diacritics": False,
+            "ignore_punctuation": False,
+            "language": LANGUAGE,
+        }
+
+        # Iterate through the user-provided options dictionary
+        for raw_key, option_value in options.items():
+            normalized_key = key_mapping.get(raw_key)
+
+            if not normalized_key:
+                raise TypeError(
+                    f"Unknown option field provided: '{raw_key}'"
+                )
+
+            # Type parsing and validation based on the target field name
+            if normalized_key in ("ignore_case", "ignore_diacritics", "ignore_punctuation"):
+                if option_value not in (SymbolTrue, SymbolFalse):
+                    raise TypeError(
+                        f"Field '{raw_key}' expects a Boolean value. "
+                        f"Got: '{option_value}'"
+                    )
+                processed_args[normalized_key] = option_value.value
+
+            if normalized_key == "language":
+                if option_value is SymbolLanguage:
+                    option_value = String(LANGUAGE)
+
+                if not isinstance(option_value, String):
+                    raise TypeError(
+                        f"Field '{raw_key}' expects a String value. "
+                        f"Got: '{option_value}'"
+                    )
+                processed_args[normalized_key] = option_value
+
+        # Initialize and return the frozen dataclass using our verified arguments
+        return cls(**processed_args)
 
 
-def eval_alphabet(language_name: String) -> Optional[List[String]]:
+def eval_alphabet(language_name: String) -> Optional[list[String]]:
 
     py_language_name = language_name.value
     locale = language2locale.get(py_language_name, py_language_name)
@@ -32,7 +110,7 @@ def eval_alphabet(language_name: String) -> Optional[List[String]]:
     return to_mathics_list(*alphabet_set, elements_conversion_fn=String)
 
 
-def eval_alphabetic_order(string1: str, string2: str, language_name=LANGUAGE) -> int:
+def eval_alphabetic_order(string1: str, string2: str, language_name, options: AlphabeticOrderOptions) -> int:
     """
     Compare two strings using locale-sensitive alphabetic order.
 
@@ -43,6 +121,45 @@ def eval_alphabetic_order(string1: str, string2: str, language_name=LANGUAGE) ->
     """
     locale_str = language_to_locale(language_name)
     collator = Collator.createInstance(Locale(locale_str))
+
+    # Configure Case and Diacritic (Accent) rules via Collator Strength
+    # - PRIMARY:   Only looks at the base letter (ignores case AND accents).
+    # - SECONDARY: Looks at base letters + accents (ignores case).
+    # - TERTIARY:  Looks at base letters + accents + case (Default strict sorting).
+
+    if options.ignore_case and options.ignore_diacritics:
+        # Ignore both accent variations and case sizes
+        collator.setStrength(Collator.PRIMARY)
+
+    elif options.ignore_case and not options.ignore_diacritics:
+        # Ignore upper vs lower case, but treat 'e' and 'é' as different letters
+        collator.setStrength(Collator.SECONDARY)
+
+    elif not options.ignore_case and options.ignore_diacritics:
+        # Ignore accents, but treat 'A' and 'a' as different letters.
+        # ICU handles this by setting strength to PRIMARY but turning on Case Level.
+        collator.setStrength(Collator.PRIMARY)
+        collator.setAttribute(UCollAttribute.CASE_LEVEL, UCollAttributeValue.ON)
+
+    else:
+        # Default: strict matching on both case and diacritics
+        collator.setStrength(Collator.TERTIARY)
+
+    # Configure Punctuation ignoring
+    # In ICU, ignoring punctuation is called "Alternate Handling". Turning it
+    # to SHIFTED moves punctuation tokens to the very end of the weight table,
+    # effectively ignoring them during normal alphanumeric string comparison.
+    if options.ignore_punctuation:
+        collator.setAttribute(
+            UCollAttribute.ALTERNATE_HANDLING,
+            UCollAttributeValue.SHIFTED
+        )
+    else:
+        collator.setAttribute(
+            UCollAttribute.ALTERNATE_HANDLING,
+            UCollAttributeValue.NON_IGNORABLE
+        )
+
     comparison = collator.compare(string1, string2)
     if comparison < 0:
         return 1
@@ -133,6 +250,11 @@ class AlphabeticOrder(Builtin):
       <dd>gives 1 if $string_1$ appears before $string_2$ in alphabetical order, -1 if it is after, and 0 if it is identical.
     </dl>
 
+     The alphabetic order of two characters:
+     >> AlphabeticOrder["e", "f"]
+      = 1
+
+     The alphabetic order of two strings:
      >> AlphabeticOrder["apple", "banana"]
       = 1
 
@@ -155,68 +277,34 @@ class AlphabeticOrder(Builtin):
       = 1
     """
 
-    summary_text = "compare strings according to an alphabet"
+    eval_error = Builtin.generic_argument_error
+    expected_args = range(1, 4)
+    options = {
+        # "System`CaseOrdering": "Automatic",
+        "System`IgnoreCase": "False",
+        "System`IgnoreDiacritics": "False",
+        "System`IgnorePunctuation": "False",
+        "System`Language": "$Language",
+    }
+    summary_text = "return -1, 0, 1 comparing the alphabetic order of two strings"
 
-    def eval(self, string1: String, string2: String, evaluation: Evaluation):
-        """AlphabeticOrder[string1_String, string2_String]"""
-        return Integer(eval_alphabetic_order(string1.value, string2.value))
+    def eval(self, string1: String, string2: String, evaluation: Evaluation, options: dict):
+        """AlphabeticOrder[string1_String, string2_String, OptionsPattern[%(name)s]]"""
+        lang = String(LANGUAGE)
+        return self.eval_with_lang(string1, string2, lang, options, evaluation)
 
     def eval_with_lang(
-        self, string1: String, string2: String, lang: String, evaluation: Evaluation
+            self, string1: String, string2: String, lang: String, options: dict, evaluation: Evaluation
     ):
-        """AlphabeticOrder[string1_String, string2_String, lang_String]"""
+        """AlphabeticOrder[string1_String, string2_String, lang_String, OptionsPattern[%(name)s]]"""
+
+        alphabetic_order_options = AlphabeticOrderOptions.from_dict(options)
+
         return Integer(
             eval_alphabetic_order(
                 string1.value,
                 string2.value,
                 lang.value,
+                alphabetic_order_options,
             )
         )
-
-
-## FIXME: move to mathics-core. Will have to change references to Pymathics`$Language to $Language
-class Language(Predefined):
-    """
-    <url>
-    :WMA link:
-    https://reference.wolfram.com/language/ref/\\$Language.html</url>
-
-    <dl>
-      <dt>'\\$Language'
-      <dd>is a settable global variable for the default language used in Mathics3.
-    </dl>
-
-    See the language in effect used for functions like 'Alphabet[]':
-
-    By setting its value, The letters of 'Alphabet[]' are changed:
-
-    >> $Language = "German"; Alphabet[]
-     = ...
-
-    #> $Language = "English"
-     = English
-
-    See also <url>
-    :Alphabet:
-     /doc/mathics3-modules/icu-international-components-for-unicode/languages-human-language-alphabets-and-locales-via-pyicu/alphabet/</url>.
-    """
-
-    name = "$Language"
-    messages = {
-        "notstr": "`1` is not a string. Only strings can be set as the value of $Language.",
-    }
-
-    summary_text = "settable global variable giving the default language"
-    value = f'"{LANGUAGE}"'
-    # Rules has to come after "value"
-    rules = {
-        "Pymathics`$Language": value,
-    }
-
-    def eval_set(self, value, evaluation: Evaluation):
-        """Set[Pymathics`$Language, value_]"""
-        if isinstance(value, String):
-            evaluation.definitions.set_ownvalue("$Language", value)
-        else:
-            evaluation.message("Pymathics`$Language", "notstr", value)
-        return value

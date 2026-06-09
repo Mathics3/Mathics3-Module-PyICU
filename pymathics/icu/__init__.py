@@ -26,7 +26,7 @@ Examples:
    = {ʼ, а, б, в, г, д, е, ж, з, и, й, к, л, м, н, о, п, р, с, т, у, ф, х, ц, ч, ш, щ, ь, ю, я, є, і, ї, ґ}
 """
 
-from pymathics.icu.__main__ import Alphabet, AlphabeticOrder, Language
+from pymathics.icu.__main__ import Alphabet, AlphabeticOrder
 from pymathics.icu.version import __version__
 
 pymathics_version_data = {
@@ -39,7 +39,6 @@ pymathics_version_data = {
 __all__ = [
     "Alphabet",
     "AlphabeticOrder",
-    "Language",
     "pymathics_version_data",
     "__version__",
 ]
