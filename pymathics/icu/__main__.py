@@ -81,7 +81,12 @@ class AlphabeticOrderOptions:
             normalized_key = key_mapping.get(raw_key)
 
             if not normalized_key:
-                evaluation.message("AlphabeticOrder", "nodef", Symbol(raw_key), String("AlphabeticOrder"))
+                evaluation.message(
+                    "AlphabeticOrder",
+                    "nodef",
+                    Symbol(raw_key),
+                    String("AlphabeticOrder"),
+                )
                 return
 
             # Type parsing and validation based on the target field name
@@ -91,7 +96,12 @@ class AlphabeticOrderOptions:
                 "ignore_punctuation",
             ):
                 if option_value not in (SymbolTrue, SymbolFalse):
-                    evaluation.message("AlphabeticOrder", "nodef", Symbol(raw_key), String("AlphabeticOrder"))
+                    evaluation.message(
+                        "AlphabeticOrder",
+                        "nodef",
+                        Symbol(raw_key),
+                        String("AlphabeticOrder"),
+                    )
                     return
                 processed_args[normalized_key] = option_value.value
 
@@ -100,7 +110,12 @@ class AlphabeticOrderOptions:
                     option_value = String(LANGUAGE)
 
                 if not isinstance(option_value, String):
-                    evaluation.message("AlphabeticOrder", "nodef", Symbol(raw_key), String("AlphabeticOrder"))
+                    evaluation.message(
+                        "AlphabeticOrder",
+                        "nodef",
+                        Symbol(raw_key),
+                        String("AlphabeticOrder"),
+                    )
                     return
                 processed_args[normalized_key] = option_value
 
@@ -112,7 +127,12 @@ class AlphabeticOrderOptions:
                 elif option_value == StringUpperFirst:
                     processed_args[normalized_key] = False
                 else:
-                    evaluation.message("AlphabeticOrder", "nodef", Symbol(raw_key), String("AlphabeticOrder"))
+                    evaluation.message(
+                        "AlphabeticOrder",
+                        "nodef",
+                        Symbol(raw_key),
+                        String("AlphabeticOrder"),
+                    )
                     return
 
         # Initialize and return the frozen dataclass using our verified arguments
