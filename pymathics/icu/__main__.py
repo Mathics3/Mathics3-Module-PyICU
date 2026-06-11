@@ -22,8 +22,9 @@ language2locale = {
     for locale_name, availableLocale in available_locales.items()
 }
 
+LowerFirstSet: Final[set[String]] = {String("System`LowerFirst"), String("LowerFirst")}
 StringAutomatic: Final[String] = String("System`Automatic")
-LowerFirst: Final[set[String]] = {String("System`LowerFirst"), String("LowerFirst")}
+StringLanguage: Final[String] = String("Language")
 StringUpperFirst: Final[String] = String("UpperFirst")
 SymbolLanguage: Final[String] = Symbol("System`$Language")
 
@@ -117,7 +118,7 @@ class AlphabeticOrderOptions:
             elif normalized_key == "lowercase_ordering":
                 if (option_value is SymbolAutomatic) or option_value == "Automatic":
                     processed_args[normalized_key] = None
-                elif option_value in LowerFirst:
+                elif option_value in LowerFirstSet:
                     processed_args[normalized_key] = True
                 elif option_value == StringUpperFirst:
                     processed_args[normalized_key] = False
@@ -304,6 +305,10 @@ class AlphabeticOrder(Builtin):
      >> AlphabeticOrder["parrot", "parrot"]
       = 0
 
+     The above done in operator form:
+     >> AlphabeticOrder[]["parrot", "parrot"]
+      = 0
+
      When words are the same but only differ in case, usually lowercase letters come first:
      >> AlphabeticOrder["A", "a"]
       = -1
@@ -329,6 +334,10 @@ class AlphabeticOrder(Builtin):
      >> AlphabeticOrder["Papá", "Papagayo", "Spanish"]
       = 1
 
+     The above done in operator form:
+     >> AlphabeticOrder["Spanish"]["Papá", "Papagayo"]
+      = 1
+
      The alphabetic ordering is determined by the value of <url>:$Language:
      doc/reference-of-built-in-symbols/global-system-information/$language/</url>. However, \
      specify a the language as the third argument:
@@ -348,7 +357,7 @@ class AlphabeticOrder(Builtin):
     """
 
     eval_error = Builtin.generic_argument_error
-    expected_args = range(1, 4)
+    expected_args = range(4)
     options = {
         "System`CaseOrdering": "Automatic",
         "System`IgnoreCase": "False",
@@ -363,6 +372,31 @@ class AlphabeticOrder(Builtin):
     ):
         """AlphabeticOrder[string1_String, string2_String, OptionsPattern[%(name)s]]"""
         lang = String(LANGUAGE)
+        return self.eval_with_lang(string1, string2, lang, options, evaluation)
+
+    # FIXME: Figure out out to accomplish as a rule?
+    def eval_default_lang_operator(
+        self,
+        string1: String,
+        string2: String,
+        options: dict,
+        evaluation: Evaluation,
+    ):
+        """AlphabeticOrder[___][string1_String, string2_String, OptionsPattern[%(name)s]]"""
+        return self.eval_with_lang(
+            string1, string2, StringLanguage, options, evaluation
+        )
+
+    # FIXME: Figure out out to accomplish as a rule?
+    def eval_lang_operator(
+        self,
+        string1: String,
+        string2: String,
+        lang: String,
+        options: dict,
+        evaluation: Evaluation,
+    ):
+        """AlphabeticOrder[lang_String][string1_String, string2_String, OptionsPattern[%(name)s]]"""
         return self.eval_with_lang(string1, string2, lang, options, evaluation)
 
     def eval_with_lang(
