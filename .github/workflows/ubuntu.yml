@@ -1,8 +1,9 @@
+---
 name: Mathics3-Module-pyICU (ubuntu)
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
     branches: '**'
 
@@ -13,26 +14,27 @@ jobs:
       matrix:
         python-version: ['3.12', '3.13', '3.14']
     steps:
-    - uses: actions/checkout@v5
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        sudo apt install libicu-dev
-        python -m pip install --upgrade pip
-        python -m pip install pytest
-        # # Go over and comment out stuff when next Mathics3 core and Mathics-scanner are released
-        # python -m pip install -e git+https://github.com/Mathics3/mathics-scanner#egg=Mathics-Scanner[full]
-        # git clone https://github.com/Mathics3/mathics-core
-        # (cd mathics-core && pip3 install -e .[full])
-        # (cd mathics-core && bash ./admin-tools/make-JSON-tables.sh)
-        # python -m pip install -e git+https://github.com/Mathics3/Mathics3-Module-Base#egg=Mathics3-Module-Base
-    - name: install Mathic3 PyICU Module
-      run: |
-        python -m pip install Mathics3 PyICU
-        python -m pip install --no-build-isolation -e .
-    - name: Test Mathics3 PyICU Module
-      run: |
-        make check
+      - uses: actions/checkout@v5
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          sudo apt install libicu-dev
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+          # # Go over and comment out stuff when next Mathics3 core and Mathics-scanner are released
+          # python -m pip install -e git+https://github.com/Mathics3/mathics-scanner#egg=Mathics-Scanner[full]
+          # We use recently-added message tags from mathics core.
+          # Until next mathics-core release...
+          git clone https://github.com/Mathics3/mathics-core
+          (cd mathics-core && pip3 install -e .[full])
+          # python -m pip install -e git+https://github.com/Mathics3/Mathics3-Module-Base#egg=Mathics3-Module-Base
+      - name: Install Mathic3 PyICU Module
+        run: |
+          python -m pip install Mathics3 PyICU
+          python -m pip install --no-build-isolation -e .
+      - name: Test Mathics3 PyICU Module
+        run: |
+          make check
