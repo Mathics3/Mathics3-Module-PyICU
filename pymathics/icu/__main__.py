@@ -13,7 +13,7 @@ from mathics.core.atoms import Integer, String
 from mathics.core.builtin import Builtin
 from mathics.core.convert.expression import to_mathics_list
 from mathics.core.evaluation import Evaluation
-from mathics.core.symbols import Symbol, SymbolFalse, SymbolTrue
+from mathics.core.symbols import Symbol, SymbolFalse, SymbolTrue, strip_context
 from mathics.core.systemsymbols import SymbolAutomatic
 
 available_locales = Locale.getAvailableLocales()
@@ -84,7 +84,7 @@ class AlphabeticOrderOptions:
                 evaluation.message(
                     "AlphabeticOrder",
                     "nodef",
-                    Symbol(raw_key),
+                    String(strip_context(raw_key)),
                     String("AlphabeticOrder"),
                 )
                 return
@@ -98,9 +98,9 @@ class AlphabeticOrderOptions:
                 if option_value not in (SymbolTrue, SymbolFalse):
                     evaluation.message(
                         "AlphabeticOrder",
-                        "nodef",
-                        Symbol(raw_key),
-                        String("AlphabeticOrder"),
+                        "opttf",
+                        String(strip_context(raw_key)),
+                        option_value,
                     )
                     return
                 processed_args[normalized_key] = option_value.value
@@ -109,15 +109,10 @@ class AlphabeticOrderOptions:
                 if option_value is SymbolLanguage:
                     option_value = String(LANGUAGE)
 
-                if not isinstance(option_value, String):
-                    evaluation.message(
-                        "AlphabeticOrder",
-                        "nodef",
-                        Symbol(raw_key),
-                        String("AlphabeticOrder"),
-                    )
-                    return
-                processed_args[normalized_key] = option_value
+                # In contrast to True/False values for other options,
+                # if the Language option is not a string, WMA just ignores the option.
+                if isinstance(option_value, String):
+                    processed_args[normalized_key] = option_value
 
             elif normalized_key == "lowercase_ordering":
                 if (option_value is SymbolAutomatic) or option_value == "Automatic":
