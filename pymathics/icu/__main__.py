@@ -4,13 +4,17 @@
 Languages - Human-Language Alphabets and Locales via PyICU.
 """
 
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import Any, Final, Optional
 
-from icu import Collator, Locale, LocaleData
+from icu import Collator, Locale, LocaleData, UCollAttribute, UCollAttributeValue
+from mathics.builtin.system import LANGUAGE
 from mathics.core.atoms import Integer, String
-from mathics.core.builtin import Builtin, Predefined
+from mathics.core.builtin import Builtin
 from mathics.core.convert.expression import to_mathics_list
 from mathics.core.evaluation import Evaluation
+from mathics.core.symbols import Symbol, SymbolFalse, SymbolTrue, strip_context
+from mathics.core.systemsymbols import SymbolAutomatic
 
 available_locales = Locale.getAvailableLocales()
 language2locale = {
@@ -18,11 +22,120 @@ language2locale = {
     for locale_name, availableLocale in available_locales.items()
 }
 
-# The current value of $Language
-LANGUAGE = "English"
+LowerFirstSet: Final[set[String]] = {String("System`LowerFirst"), String("LowerFirst")}
+StringAutomatic: Final[String] = String("System`Automatic")
+StringLanguage: Final[String] = String("Language")
+StringUpperFirst: Final[String] = String("UpperFirst")
+SymbolLanguage: Final[String] = Symbol("System`$Language")
 
 
-def eval_alphabet(language_name: String) -> Optional[List[String]]:
+@dataclass(frozen=True)
+class AlphabeticOrderOptions:
+    """
+    Stores options associated with AlphbeticOrder[] builtin.
+
+    One initialized, this structure is immutable or frozen.
+    """
+
+    lowercase_ordering: Optional[bool] = None
+    """'True" if ordering should be lowercase first, 'False" if should uppercase first,
+      and 'None' if we should use the natural alphabet ordering case."""
+
+    ignore_case: bool = False
+    """whether to ignore upper versus lower case"""
+
+    ignore_diacritics: bool = False
+    """whether to ignore diacritics for ordering"""
+
+    ignore_punctuation: bool = False
+    """whether to ignore punctuation for ordering"""
+
+    language: str = LANGUAGE
+    """what language or alphabet to assume"""
+
+    @classmethod
+    def from_dict(
+        cls, options: dict[str, Any], evaluation: Evaluation
+    ) -> Optional["AlphabeticOrderOptions"]:
+        """Factory method that normalizes, type-checks, and builds the frozen structure
+        from a raw dict[str, str].
+        """
+        key_mapping = {
+            "System`CaseOrdering": "lowercase_ordering",
+            "System`IgnoreCase": "ignore_case",
+            "System`IgnoreDiacritics": "ignore_diacritics",
+            "System`IgnorePunctuation": "ignore_punctuation",
+            "System`Language": "language",
+        }
+
+        # This will hold our cleaned, type-converted parameters
+        processed_args: dict[str, Any] = {
+            "lowercase_ordering": None,
+            "ignore_case": False,
+            "ignore_diacritics": False,
+            "ignore_punctuation": False,
+            "language": LANGUAGE,
+        }
+
+        # Iterate through the user-provided options dictionary
+        for raw_key, option_value in options.items():
+            normalized_key = key_mapping.get(raw_key)
+
+            if not normalized_key:
+                evaluation.message(
+                    "AlphabeticOrder",
+                    "nodef",
+                    String(strip_context(raw_key)),
+                    String("AlphabeticOrder"),
+                )
+                return
+
+            # Type parsing and validation based on the target field name
+            if normalized_key in (
+                "ignore_case",
+                "ignore_diacritics",
+                "ignore_punctuation",
+            ):
+                if option_value not in (SymbolTrue, SymbolFalse):
+                    evaluation.message(
+                        "AlphabeticOrder",
+                        "opttf",
+                        String(strip_context(raw_key)),
+                        option_value,
+                    )
+                    return
+                processed_args[normalized_key] = option_value.value
+
+            elif normalized_key == "language":
+                if option_value is SymbolLanguage:
+                    option_value = String(LANGUAGE)
+
+                # In contrast to True/False values for other options,
+                # if the Language option is not a string, WMA just ignores the option.
+                if isinstance(option_value, String):
+                    processed_args[normalized_key] = option_value
+
+            elif normalized_key == "lowercase_ordering":
+                if (option_value is SymbolAutomatic) or option_value == "Automatic":
+                    processed_args[normalized_key] = None
+                elif option_value in LowerFirstSet:
+                    processed_args[normalized_key] = True
+                elif option_value == StringUpperFirst:
+                    processed_args[normalized_key] = False
+                else:
+                    evaluation.message(
+                        "AlphabeticOrder",
+                        "nodef",
+                        Symbol(raw_key),
+                        String("AlphabeticOrder"),
+                    )
+                    return
+
+        # Initialize and return the frozen dataclass using our verified arguments
+        return cls(**processed_args)
+
+
+def eval_alphabet(language_name: String) -> Optional[list[String]]:
 
     py_language_name = language_name.value
     locale = language2locale.get(py_language_name, py_language_name)
@@ -32,7 +145,9 @@ def eval_alphabet(language_name: String) -> Optional[List[String]]:
     return to_mathics_list(*alphabet_set, elements_conversion_fn=String)
 
 
-def eval_alphabetic_order(string1: str, string2: str, language_name=LANGUAGE) -> int:
+def eval_alphabetic_order(
+    string1: str, string2: str, language_name, options: AlphabeticOrderOptions
+) -> int:
     """
     Compare two strings using locale-sensitive alphabetic order.
 
@@ -43,6 +158,52 @@ def eval_alphabetic_order(string1: str, string2: str, language_name=LANGUAGE) ->
     """
     locale_str = language_to_locale(language_name)
     collator = Collator.createInstance(Locale(locale_str))
+
+    # Configure Case and Diacritic (Accent) rules via Collator Strength
+    # - PRIMARY:   Only looks at the base letter (ignores case AND accents).
+    # - SECONDARY: Looks at base letters + accents (ignores case).
+    # - TERTIARY:  Looks at base letters + accents + case (Default strict sorting).
+
+    if options.ignore_case and options.ignore_diacritics:
+        # Ignore both accent variations and case sizes
+        collator.setStrength(Collator.PRIMARY)
+
+    elif options.ignore_case and not options.ignore_diacritics:
+        # Ignore upper vs lower case, but treat 'e' and 'é' as different letters
+        collator.setStrength(Collator.SECONDARY)
+
+    elif not options.ignore_case and options.ignore_diacritics:
+        # Ignore accents, but treat 'A' and 'a' as different letters.
+        # ICU handles this by setting strength to PRIMARY but turning on Case Level.
+        collator.setStrength(Collator.PRIMARY)
+        collator.setAttribute(UCollAttribute.CASE_LEVEL, UCollAttributeValue.ON)
+
+    else:
+        # Default: strict matching on both case and diacritics
+        collator.setStrength(Collator.TERTIARY)
+
+    # Configure Punctuation ignoring
+    # In ICU, ignoring punctuation is called "Alternate Handling". Turning it
+    # to SHIFTED moves punctuation tokens to the very end of the weight table,
+    # effectively ignoring them during normal alphanumeric string comparison.
+    if options.ignore_punctuation:
+        collator.setAttribute(
+            UCollAttribute.ALTERNATE_HANDLING, UCollAttributeValue.SHIFTED
+        )
+    else:
+        collator.setAttribute(
+            UCollAttribute.ALTERNATE_HANDLING, UCollAttributeValue.NON_IGNORABLE
+        )
+
+    if options.lowercase_ordering:
+        collator.setAttribute(
+            UCollAttribute.CASE_FIRST, UCollAttributeValue.LOWER_FIRST
+        )
+    elif options.lowercase_ordering is False:
+        collator.setAttribute(
+            UCollAttribute.CASE_FIRST, UCollAttributeValue.UPPER_FIRST
+        )
+
     comparison = collator.compare(string1, string2)
     if comparison < 0:
         return 1
@@ -107,11 +268,11 @@ class Alphabet(Builtin):
     """
 
     messages = {
-        "nalph": "The alphabet `` is not known or not available.",
+        "nalph": "The alphabet `1` is not known or not available.",
     }
 
     rules = {
-        "Alphabet[]": """Alphabet[Pymathics`$Language]""",
+        "Alphabet[]": """Alphabet[$Language]""",
     }
 
     summary_text = "lowercase letters in an alphabet"
@@ -133,15 +294,34 @@ class AlphabeticOrder(Builtin):
       <dd>gives 1 if $string_1$ appears before $string_2$ in alphabetical order, -1 if it is after, and 0 if it is identical.
     </dl>
 
+     The alphabetic order of two characters:
+     >> AlphabeticOrder["e", "f"]
+      = 1
+
+     The alphabetic order of two strings:
      >> AlphabeticOrder["apple", "banana"]
       = 1
 
      >> AlphabeticOrder["parrot", "parrot"]
       = 0
 
+     The above done in operator form:
+     >> AlphabeticOrder[]["parrot", "parrot"]
+      = 0
+
      When words are the same but only differ in case, usually lowercase letters come first:
      >> AlphabeticOrder["A", "a"]
       = -1
+
+     However, you can for which case comes first using the 'CaseOrdering' option:
+     >> AlphabeticOrder["a", "A", CaseOrdering -> "LowerFirst"]
+      = 1
+
+     >> AlphabeticOrder["a", "A", CaseOrdering -> "UpperFirst"]
+      = -1
+
+     >> AlphabeticOrder["a", "A"] ==  AlphabeticOrder["a", "A", CaseOrdering -> "LowerFirst"]
+      = True
 
      Longer words follow their prefixes:
      >> AlphabeticOrder["Papagayo", "Papa", "Spanish"]
@@ -153,70 +333,91 @@ class AlphabeticOrder(Builtin):
 
      >> AlphabeticOrder["Papá", "Papagayo", "Spanish"]
       = 1
+
+     The above done in operator form:
+     >> AlphabeticOrder["Spanish"]["Papá", "Papagayo"]
+      = 1
+
+     The alphabetic ordering is determined by the value of <url>:$Language:
+     doc/reference-of-built-in-symbols/global-system-information/$language/</url>. However, \
+     specify a the language as the third argument:
+     >> AlphabeticOrder["ñ", "n", "Spanish"]
+      = -1
+
+     Option 'IgnorePunctuation' specifies whether to remove puctuation characters before comparing the strings:
+
+     >> AlphabeticOrder["Name-1", "Name.1", "Spanish", IgnorePunctuation -> True]
+      = 0
+
+     >> AlphabeticOrder["it's", "its", "English", IgnorePunctuation -> False]
+      = 1
+
+     >> AlphabeticOrder["it's", "its", "English", IgnorePunctuation -> True]
+      = 0
     """
 
-    summary_text = "compare strings according to an alphabet"
+    eval_error = Builtin.generic_argument_error
+    expected_args = range(4)
+    options = {
+        "System`CaseOrdering": "Automatic",
+        "System`IgnoreCase": "False",
+        "System`IgnoreDiacritics": "False",
+        "System`IgnorePunctuation": "False",
+        "System`Language": "$Language",
+    }
+    summary_text = "return -1, 0, 1 comparing the alphabetic order of two strings"
 
-    def eval(self, string1: String, string2: String, evaluation: Evaluation):
-        """AlphabeticOrder[string1_String, string2_String]"""
-        return Integer(eval_alphabetic_order(string1.value, string2.value))
+    def eval(
+        self, string1: String, string2: String, evaluation: Evaluation, options: dict
+    ):
+        """AlphabeticOrder[string1_String, string2_String, OptionsPattern[%(name)s]]"""
+        lang = String(LANGUAGE)
+        return self.eval_with_lang(string1, string2, lang, options, evaluation)
+
+    # FIXME: Figure out out to accomplish as a rule?
+    def eval_default_lang_operator(
+        self,
+        string1: String,
+        string2: String,
+        options: dict,
+        evaluation: Evaluation,
+    ):
+        """AlphabeticOrder[___][string1_String, string2_String, OptionsPattern[%(name)s]]"""
+        return self.eval_with_lang(
+            string1, string2, StringLanguage, options, evaluation
+        )
+
+    # FIXME: Figure out out to accomplish as a rule?
+    def eval_lang_operator(
+        self,
+        string1: String,
+        string2: String,
+        lang: String,
+        options: dict,
+        evaluation: Evaluation,
+    ):
+        """AlphabeticOrder[lang_String][string1_String, string2_String, OptionsPattern[%(name)s]]"""
+        return self.eval_with_lang(string1, string2, lang, options, evaluation)
 
     def eval_with_lang(
-        self, string1: String, string2: String, lang: String, evaluation: Evaluation
+        self,
+        string1: String,
+        string2: String,
+        lang: String,
+        options: dict,
+        evaluation: Evaluation,
     ):
-        """AlphabeticOrder[string1_String, string2_String, lang_String]"""
+        """AlphabeticOrder[string1_String, string2_String, lang_String, OptionsPattern[%(name)s]]"""
+
+        alphabetic_order_options = AlphabeticOrderOptions.from_dict(options, evaluation)
+        if alphabetic_order_options is None:
+            return
+
         return Integer(
             eval_alphabetic_order(
                 string1.value,
                 string2.value,
                 lang.value,
+                alphabetic_order_options,
             )
         )
-
-
-## FIXME: move to mathics-core. Will have to change references to Pymathics`$Language to $Language
-class Language(Predefined):
-    """
-    <url>
-    :WMA link:
-    https://reference.wolfram.com/language/ref/\\$Language.html</url>
-
-    <dl>
-      <dt>'\\$Language'
-      <dd>is a settable global variable for the default language used in Mathics3.
-    </dl>
-
-    See the language in effect used for functions like 'Alphabet[]':
-
-    By setting its value, The letters of 'Alphabet[]' are changed:
-
-    >> $Language = "German"; Alphabet[]
-     = ...
-
-    #> $Language = "English"
-     = English
-
-    See also <url>
-    :Alphabet:
-     /doc/mathics3-modules/icu-international-components-for-unicode/languages-human-language-alphabets-and-locales-via-pyicu/alphabet/</url>.
-    """
-
-    name = "$Language"
-    messages = {
-        "notstr": "`1` is not a string. Only strings can be set as the value of $Language.",
-    }
-
-    summary_text = "settable global variable giving the default language"
-    value = f'"{LANGUAGE}"'
-    # Rules has to come after "value"
-    rules = {
-        "Pymathics`$Language": value,
-    }
-
-    def eval_set(self, value, evaluation: Evaluation):
-        """Set[Pymathics`$Language, value_]"""
-        if isinstance(value, String):
-            evaluation.definitions.set_ownvalue("$Language", value)
-        else:
-            evaluation.message("Pymathics`$Language", "notstr", value)
-        return value
